@@ -1,0 +1,8 @@
+{
+  "name": "Operativa & Geovisor",
+  "description": "Sistema de reporte de novedades de campo y geovisor de ejecución con integración de mapas satelitales.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
