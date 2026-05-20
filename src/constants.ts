@@ -38,11 +38,22 @@ export const LOTES: Record<string, string[]> = {
 };
 
 export const TIPOS_NOVEDAD = [
-  "Falta Barrido",
-  "Falta Despunte",
-  "Punto Crítico",
-  "Arbolado Caído",
-  "Otro",
+  "Barrido",
+  "Recolección",
+  "Recipiente de combustible sin rotular/ fuga",
+  "Corte disparejo",
+  "Limpieza previa",
+  "Sector sin intervenir",
+  "Limpieza Manual",
+  "Bordeo",
+  "Recuperación y Limpieza de zonas duras",
+  "Malla de protección en mal estado",
+  "Uso de mallas de protección",
+  "Afectación de individuos árboreos",
+  "Disposición inadecuada de residuos",
+  "Delimitación de área de intervención",
+  "Ausencia de kit antiderrame",
+  "PMT"
 ];
 
 // Helper to safely extract features array from various GeoJSON import shapes
