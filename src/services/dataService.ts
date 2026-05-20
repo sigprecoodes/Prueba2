@@ -30,6 +30,16 @@ export function formatCuadrilla(name: string): string {
     .join('_');
 }
 
+export function idToFirebaseKey(id: string): string {
+  if (!id) return "";
+  return id.replace(/\./g, '___');
+}
+
+export function firebaseKeyToId(key: string): string {
+  if (!key) return "";
+  return key.replace(/___/g, '.');
+}
+
 console.log("Firebase Paths initialized:", PATHS);
 
 class DataService {
@@ -49,7 +59,7 @@ class DataService {
         console.log("Novedades data received from Firebase:", Object.keys(data).length, "items");
         const list = Object.entries(data).map(([key, val]: [string, any]) => ({
           ...val,
-          id: val.id || key // Use stored ID or key as-is
+          id: val.id || firebaseKeyToId(key) // Restoring safe dot notation if needed
         }));
         callback(list);
       }, (error) => {
@@ -142,7 +152,7 @@ class DataService {
 
       // Sanitize key (Firebase keys cannot contain ., $, #, [, ], or /)
       // We use a safe separator for dots if they exist
-      const firebaseKey = id.replace(/\./g, '___');
+      const firebaseKey = idToFirebaseKey(id);
       
       console.log("Saving new novedad to Firebase:", id, "at key:", firebaseKey);
       await set(ref(db, `${PATHS.NOVEDADES}/${firebaseKey}`), newNovedad);
@@ -157,7 +167,7 @@ class DataService {
   async updateNovedad(id: string, updates: Partial<Novedad>): Promise<void> {
     try {
       const db = getDb();
-      const firebaseKey = id.replace(/\./g, '___');
+      const firebaseKey = idToFirebaseKey(id));
       console.log("Updating novedad:", id, "with updates:", updates);
       await update(ref(db, `${PATHS.NOVEDADES}/${firebaseKey}`), updates);
       console.log("Novedad updated successfully");
@@ -175,7 +185,7 @@ class DataService {
       const data = snapshot.val();
       return Object.entries(data).map(([key, val]: [string, any]) => ({
         ...val,
-        id: val.id || key.replace(/_/g, '.') // Fallback to key if id not in object
+        id: val.id || firebaseKeyToId(key)
       }));
     } catch (e) {
       console.error(e);
