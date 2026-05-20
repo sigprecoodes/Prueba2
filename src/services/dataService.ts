@@ -167,7 +167,7 @@ class DataService {
   async updateNovedad(id: string, updates: Partial<Novedad>): Promise<void> {
     try {
       const db = getDb();
-      const firebaseKey = idToFirebaseKey(id));
+      const firebaseKey = idToFirebaseKey(id);
       console.log("Updating novedad:", id, "with updates:", updates);
       await update(ref(db, `${PATHS.NOVEDADES}/${firebaseKey}`), updates);
       console.log("Novedad updated successfully");
