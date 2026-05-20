@@ -561,7 +561,7 @@
       <div className="fixed inset-0 z-[4500] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
         <div className="bg-white rounded-[24px] md:rounded-[32px] w-full max-w-lg shadow-2xl p-6 md:p-10 relative animate-in scale-in duration-300 max-h-[90vh] overflow-y-auto">
           <button onClick={onClose} className="absolute top-6 md:top-8 right-6 md:right-8 text-gray-300 hover:text-black transition-colors">
-            <History className="w-5 h-5 md:w-6 md:h-6" />
+            <X className="w-5 h-5 md:w-6 md:h-6" />
           </button>
 
           <h2 className="text-2xl md:text-3xl font-black text-black mb-1">Cerrar Novedad</h2>
@@ -611,7 +611,7 @@
               onClick={handleUpdate}
               className="flex-1 border-2 border-black hover:bg-black hover:text-white font-bold py-3.5 md:py-4 rounded-xl md:rounded-2xl transition-all text-xs md:text-sm"
             >
-              GUARDAR TRABAJO
+              GUARDAR
             </button>
             <button
               onClick={handleCerrar}
