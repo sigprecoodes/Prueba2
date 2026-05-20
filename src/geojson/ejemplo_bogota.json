@@ -1,0 +1,137 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "FID": 18,
+        "No_Lote": "539",
+        "Microruta": "Z2CC0311",
+        "Semana": "1 y 3",
+        "Frecuencia": "Quincenal",
+        "Día_de_ej": "6 y 6",
+        "Cuadrilla": "Cuadrilla 1"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-74.08, 4.60],
+          [-74.07, 4.60],
+          [-74.07, 4.61],
+          [-74.08, 4.61],
+          [-74.08, 4.60]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "FID": 19,
+        "No_Lote": "538",
+        "Microruta": "Z2CC0311",
+        "Semana": "1 y 3",
+        "Frecuencia": "Quincenal",
+        "Día_de_ej": "6 y 6",
+        "Cuadrilla": "Cuadrilla B"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-74.07, 4.60],
+          [-74.06, 4.60],
+          [-74.06, 4.61],
+          [-74.07, 4.61],
+          [-74.07, 4.60]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "FID": 20,
+        "No_Lote": "101",
+        "Microruta": "Z1CC0101",
+        "Semana": "2 y 4",
+        "Frecuencia": "Quincenal",
+        "Día_de_ej": "1 y 1",
+        "Cuadrilla": "Cuadrilla A"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-74.09, 4.62],
+          [-74.08, 4.62],
+          [-74.08, 4.63],
+          [-74.09, 4.63],
+          [-74.09, 4.62]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "FID": 21,
+        "No_Lote": "102",
+        "Microruta": "Z1CC0101",
+        "Semana": "2 y 4",
+        "Frecuencia": "Quincenal",
+        "Día_de_ej": "1 y 1",
+        "Cuadrilla": "Cuadrilla A"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-74.08, 4.62],
+          [-74.07, 4.62],
+          [-74.07, 4.63],
+          [-74.08, 4.63],
+          [-74.08, 4.62]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "FID": 22,
+        "No_Lote": "103",
+        "Microruta": "Z1CC0101",
+        "Semana": "2 y 4",
+        "Frecuencia": "Quincenal",
+        "Día_de_ej": "1 y 1",
+        "Cuadrilla": "Cuadrilla A"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-74.07, 4.62],
+          [-74.06, 4.62],
+          [-74.06, 4.63],
+          [-74.07, 4.63],
+          [-74.07, 4.62]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "FID": 23,
+        "No_Lote": "521",
+        "Microruta": "Z3CC0521",
+        "Semana": "1 y 3",
+        "Frecuencia": "Quincenal",
+        "Día_de_ej": "3 y 3",
+        "Cuadrilla": "Cuadrilla C"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-74.10, 4.59],
+          [-74.09, 4.59],
+          [-74.09, 4.60],
+          [-74.10, 4.60],
+          [-74.10, 4.59]
+        ]]
+      }
+    }
+  ]
+}

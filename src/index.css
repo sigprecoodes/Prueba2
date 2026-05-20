@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Noto+Serif+Telugu:wght@400;700&family=Noto+Serif+Georgian:wght@400;700&family=Cactus+Classical+Serif&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Fraunces", serif;
+  --font-noto-telugu: "Noto Serif Telugu", serif;
+  --font-noto-georgian: "Noto Serif Georgian", serif;
+  --font-cactus: "Cactus Classical Serif", serif;
+  
+  --radius-4xl: 2rem;
+  --radius-5xl: 3rem;
+}
+
+@layer base {
+  body {
+    @apply font-sans text-gray-900 bg-white antialiased;
+  }
+}
+
+#map-icon-svg {
+  border-width: 0px !important;
+}
+
+#map-icon-svg path:nth-of-type(3) {
+  background-color: #000000; /* As requested */
+  fill: #000000; /* Practical SVG implementation */
+}
