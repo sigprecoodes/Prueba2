@@ -6,11 +6,14 @@
 import React, { useState, useEffect } from "react";
 import OperativaModule from "./components/Operativa/OperativaModule";
 import MapViewer from "./components/Geovisor/MapViewer";
-import { LayoutDashboard, Map as MapIcon, ClipboardCheck, ArrowUpRight, Layers } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, ClipboardCheck, ArrowUpRight, Layers, Users, RefreshCw } from "lucide-react";
 import { cn } from "./lib/utils";
 
 export default function App() {
   const [activeModule, setActiveModule] = useState<"home" | "operativa" | "geovisor">("home");
+  const [selectedCuadrilla, setSelectedCuadrilla] = useState<string | null>(() => {
+    return localStorage.getItem("selected_cuadrilla");
+  });
   const [currentDate, setCurrentDate] = useState("");
 
   useEffect(() => {
@@ -19,18 +22,37 @@ export default function App() {
     setCurrentDate(date.toLocaleDateString('es-ES', options));
   }, []);
 
+  const handleSelectCuadrilla = (cuadrillaName: string) => {
+    localStorage.setItem("selected_cuadrilla", cuadrillaName);
+    setSelectedCuadrilla(cuadrillaName);
+  };
+
+  const handleResetCuadrilla = () => {
+    localStorage.removeItem("selected_cuadrilla");
+    setSelectedCuadrilla(null);
+    if (activeModule !== "geovisor") {
+      setActiveModule("home");
+    }
+  };
+
+  // 11 Cuadrillas array
+  const listCuadrillas = Array.from({ length: 11 }, (_, i) => `Cuadrilla ${i + 1}`);
+
   const renderContent = () => {
     switch (activeModule) {
       case "operativa":
         return (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500 h-full">
-            <OperativaModule />
+            <OperativaModule selectedCuadrilla={selectedCuadrilla || "Todas"} />
           </div>
         );
       case "geovisor":
         return (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500 h-full">
-            <MapViewer />
+            <MapViewer 
+              selectedCuadrilla={selectedCuadrilla || undefined} 
+              onSelectCuadrilla={handleSelectCuadrilla}
+            />
           </div>
         );
       default:
@@ -58,20 +80,22 @@ export default function App() {
                   </div>
                 </div>
                 
-                <div className="bg-gray-50 border border-gray-100 px-4 md:px-6 py-2 md:py-3 rounded-full flex items-center gap-3 w-fit">
-                  <div className="w-2 h-2 rounded-full bg-green-400" />
-                  <span className="text-xs md:text-sm font-medium text-gray-600 capitalize">{currentDate}</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="bg-gray-55 border border-gray-100 px-4 py-2 rounded-full flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-green-400" />
+                    <span className="text-xs md:text-sm font-medium text-gray-600 capitalize">{currentDate}</span>
+                  </div>
                 </div>
               </header>
 
               {/* Title Section */}
-              <div className="mb-12 md:mb-20 max-w-2xl">
+              <div className="mb-12 md:mb-16 max-w-2xl">
                 <h2 
                   style={{ 
                     fontFamily: 'Fraunces, serif', 
                     fontStyle: 'normal' 
                   }}
-                  className="text-5xl sm:text-7xl md:text-8xl font-serif text-gray-900 mb-6 md:mb-8 leading-[1.1] md:leading-[81.4px]"
+                  className="text-4xl sm:text-6xl md:text-7xl font-serif text-gray-900 mb-4 leading-tight"
                 >
                   Panel Operativo
                 </h2>
@@ -123,7 +147,19 @@ export default function App() {
               Volver al Panel
             </button>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
+              {selectedCuadrilla && (
+                <div className="bg-gray-100 border border-gray-200/60 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[10px] font-bold text-gray-700">
+                  <Users size={12} className="text-gray-500" />
+                  <span>{selectedCuadrilla === "Todas" ? "Todas las Cuadrillas" : selectedCuadrilla}</span>
+                  <button 
+                    onClick={handleResetCuadrilla}
+                    className="bg-white border text-gray-400 border-gray-200 hover:bg-black hover:text-white hover:border-black transition-all rounded-full px-1.5 py-0.5 font-bold ml-1 uppercase text-[8px]"
+                  >
+                    Cambiar
+                  </button>
+                </div>
+              )}
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                 Módulo{activeModule === 'operativa' ? ' Operativa' : ' Geovisor'}
               </span>
@@ -209,4 +245,3 @@ function ModuleCard({
     </button>
   );
 }
-
