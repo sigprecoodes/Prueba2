@@ -45,7 +45,12 @@ function FitBounds({ features }: { features: any[] }) {
   return null;
 }
 
-export default function MapViewer() {
+interface MapViewerProps {
+  selectedCuadrilla?: string;
+  onSelectCuadrilla?: (cuadrilla: string) => void;
+}
+
+export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapViewerProps) {
   const [ejecuciones, setEjecuciones] = useState<Record<string, Ejecucion>>({});
   const [novedades, setNovedades] = useState<Novedad[]>([]);
   const [meta, setMeta] = useState<{
@@ -59,7 +64,7 @@ export default function MapViewer() {
   });
   const [features, setFeatures] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCuadrilla, setFilterCuadrilla] = useState("Todas");
+  const [filterCuadrilla, setFilterCuadrilla] = useState(selectedCuadrilla || "Todas");
   const [filterEstado, setFilterEstado] = useState("Todos");
   // Cambia estas coordenadas por las de tu ciudad [Latitud, Longitud]
   // Ejemplo Medellín: [6.2442, -75.5812]
@@ -72,13 +77,30 @@ export default function MapViewer() {
   const [quincenaManual, setQuincenaManual] = useState<"Q1" | "Q2">("Q1");
 
   useEffect(() => {
+    setFilterCuadrilla(selectedCuadrilla || "Todas");
+  }, [selectedCuadrilla]);
+
+  useEffect(() => {
     const unsubNovedades = dataService.subscribeNovedades(setNovedades);
     const unsubEjecuciones = dataService.subscribeEjecuciones(setEjecuciones);
     
     // Static data loads
     const loadStatic = async () => {
       const m = await dataService.getMetadata();
-      const f = await dataService.getFeatures();
+      let f = await dataService.getFeatures();
+      
+      // OPTIMIZATION: If working in a specific cuadrilla, filter out
+      // other cuadrillas' heavy geojson data prior to setting features.
+      // This completely resolves render lags for Leaflet!
+      if (selectedCuadrilla && selectedCuadrilla !== "Todas") {
+        const queryTerm = selectedCuadrilla.toLowerCase().replace(/[\s_-]/g, "");
+        f = f.filter((item: any) => {
+          const cVal = item.properties?.Cuadrilla;
+          if (!cVal) return false;
+          return cVal.toLowerCase().replace(/[\s_-]/g, "") === queryTerm;
+        });
+      }
+      
       setMeta(m);
       setFeatures(f);
     };
@@ -88,7 +110,7 @@ export default function MapViewer() {
       unsubNovedades();
       unsubEjecuciones();
     };
-  }, []);
+  }, [selectedCuadrilla]);
 
   const getQuincenaFromSemana = (semana: any) => {
     const semStr = String(semana || "").toLowerCase();
@@ -160,7 +182,7 @@ export default function MapViewer() {
       (n) => n.MICRORRUTA === props.Microruta && String(n.LOTE) === String(props.No_Lote) && n.ESTADO_NOVEDAD !== "SUBSANADA"
     );
 
-    let color = "#080cfc"; // Default Blue
+    let color = "#3b82f6"; // Default Blue
     if (hasNovedad) color = "#ef4444"; // Red for news
     else if (exec?.estado === "Ejecutado") color = "#22c55e"; // Green
     else if (exec?.estado === "En Ejecución") color = "#f59e0b"; // Yellow
@@ -168,9 +190,9 @@ export default function MapViewer() {
     return {
       fillColor: color,
       weight: 2,
-      opacity: 1,
+      opacity: 2,
       color: "transparent",
-      fillOpacity: 0.6,
+      fillOpacity: 2,
     };
   };
 
@@ -191,14 +213,7 @@ export default function MapViewer() {
     const exec = execEntry ? (execEntry[1] as Ejecucion) : null;
     
     const estado = exec?.estado || "Pendiente";
-    const hasNovedad = novedades.some(
-      (n) => n.MICRORRUTA === mRuta && String(n.LOTE) === String(nLote) && n.ESTADO_NOVEDAD !== "SUBSANADA"
-    );
-
-    const matchesEstado = 
-      filterEstado === "Todos" || 
-      (filterEstado === "Con Novedad" && hasNovedad) ||
-      (filterEstado !== "Con Novedad" && estado === filterEstado);
+    const matchesEstado = filterEstado === "Todos" || estado === filterEstado;
 
     const cuadrillaForMicro = Object.entries(meta.microrrutas).find(([_, micros]) => 
       (micros as string[]).some(m => String(m).toLowerCase() === String(mRuta).toLowerCase())
@@ -210,6 +225,64 @@ export default function MapViewer() {
 
     return matchesSearch && matchesEstado && matchesCuadrilla;
   });
+
+  // If no cuadrilla is selected, show the custom selector landing page
+  if (!selectedCuadrilla) {
+    const listCuadrillas = Array.from({ length: 11 }, (_, i) => `Cuadrilla ${i + 1}`);
+    return (
+      <div className="min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-100px)] w-full bg-neutral-50 p-4 md:p-8 relative flex items-center justify-center overflow-auto animate-in fade-in duration-700 font-sans">
+        {/* Decorative Gradients */}
+        <div className="absolute top-[10%] -left-20 w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-[#c2e2f0]/30 rounded-full blur-[100px] -z-10" />
+        <div className="absolute bottom-[10%] -right-20 w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-emerald-100/30 rounded-full blur-[100px] -z-10" />
+
+        <div className="max-w-4xl w-full bg-white/95 backdrop-blur rounded-[32px] md:rounded-[40px] p-6 md:p-12 shadow-xl shadow-neutral-200/55 border border-neutral-100 relative z-10 transition-all">
+          <header className="text-center mb-10 max-w-2xl mx-auto">
+            <div className="mx-auto w-14 h-14 bg-sky-500 text-white rounded-3xl flex items-center justify-center shadow-lg shadow-sky-200/80 mb-6 font-semibold animate-pulse">
+              <Users size={28} />
+            </div>
+            <h2 className="text-2xl md:text-3xl font-serif text-gray-950 tracking-tight leading-tight mb-3">
+              Cartografía operativa - Contrato EMVARIAS
+            </h2>
+            <p className="text-xs md:text-sm text-neutral-500 font-medium leading-relaxed">
+              Seleccione su cuadrilla de operación.
+            </p>
+          </header>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
+            {listCuadrillas.map((cuadrilla) => {
+              const num = cuadrilla.split(" ")[1];
+              return (
+                <button
+                  key={cuadrilla}
+                  onClick={() => onSelectCuadrilla?.(cuadrilla)}
+                  className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-neutral-50 hover:bg-sky-50 border border-neutral-200/60 hover:border-sky-500/40 text-center transition-all duration-300 active:scale-95 shadow-sm hover:shadow-md"
+                >
+                  <div className="w-10 h-10 rounded-full bg-neutral-100 group-hover:bg-sky-500/10 flex items-center justify-center mb-3 text-neutral-600 group-hover:text-sky-600 transition-all font-bold">
+                    <span className="font-extrabold text-xs">{num}</span>
+                  </div>
+                  <span className="text-xs font-bold text-neutral-800 tracking-tight group-hover:text-sky-900 uppercase">
+                    {cuadrilla}
+                  </span>
+                  <span className="text-[9px] font-semibold text-neutral-400 mt-1 uppercase tracking-wider group-hover:text-sky-500/70">
+                    Supervisor
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="border-t border-neutral-100 pt-6 flex justify-center">
+            <button
+              onClick={() => onSelectCuadrilla?.("Todas")}
+              className="px-6 py-3 bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-extrabold uppercase tracking-widest rounded-xl shadow-lg transition-all active:scale-95 inline-flex items-center gap-2"
+            >
+              Ver Todas las Cuadrillas
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-screen w-full flex flex-col font-sans overflow-hidden">
@@ -268,7 +341,6 @@ export default function MapViewer() {
                 <option value="Pendiente">Pendiente</option>
                 <option value="En Ejecución">En Ejecución</option>
                 <option value="Ejecutado">Ejecutado</option>
-                <option value="Con Novedad">Con Novedad</option>
               </select>
              </div>
           </div>
@@ -308,7 +380,7 @@ export default function MapViewer() {
 
         {filteredFeatures.length > 0 && (
           <GeoJSON
-            data={{ type: "FeatureCollection", features: filteredFeatures } as any}
+            data={{ type: "FeatureCollection", features: filteredFeatures }}
             style={geojsonStyle}
             onEachFeature={onEachFeature}
             key={`geojson-${filteredFeatures.length}-${filterCuadrilla}-${filterEstado}-${searchTerm}`}
@@ -318,7 +390,7 @@ export default function MapViewer() {
         {selectedFeature && (
           <Popup 
             position={selectedFeature.latlng} 
-            eventHandlers={{ remove: () => setSelectedFeature(null) }}
+            onClose={() => setSelectedFeature(null)}
           >
             <div className="p-1 min-w-[200px] max-w-[280px]">
               <h3 className="font-bold text-lg text-gray-900 border-bottom mb-2">
@@ -398,14 +470,14 @@ export default function MapViewer() {
                         disabled={exec?.estado === "En Ejecución" || exec?.estado === "Ejecutado"}
                         className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3 md:py-2 rounded-xl md:rounded-lg text-xs transition-colors"
                       >
-                        INICIAR TRABAJO
+                        INICIAR
                       </button>
                       <button
                         onClick={() => handleAction(selectedFeature.feature, "Ejecutado")}
                         disabled={exec?.estado === "Ejecutado"}
                         className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3 md:py-2 rounded-xl md:rounded-lg text-xs transition-colors"
                       >
-                        FINALIZAR TRABAJO
+                        FINALIZAR
                       </button>
                     </>
                   );
