@@ -496,7 +496,7 @@
                   ? "bg-emerald-600 border-emerald-700 text-white shadow-emerald-200" 
                   : hasCritical 
                     ? "bg-red-600 border-red-800 text-white shadow-red-200" 
-                    : "bg-[#137d8a] border-[#0e5e68] text-white shadow-[#137d8a]/20"
+                    : "bg-[#f97316] border-[#ea580c] text-white shadow-[#f97316]/20"
               )}
             >
               {/* Glossy overlay effect */}
