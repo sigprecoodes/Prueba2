@@ -526,7 +526,7 @@
               </div>
 
               {/* Purple hover highlight like in the image's first card */}
-              <div className="absolute inset-0 border-4 border-purple-500 rounded-[28px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <div className="absolute inset-0 border-4 border-white-500 rounded-[28px] opacity-0 group-hover:opacity-20 transition-opacity pointer-events-none" />
             </div>
           );
         })}
