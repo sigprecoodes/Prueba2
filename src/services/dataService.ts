@@ -195,13 +195,7 @@ class DataService {
 
   // Geovisor specific storage
   async saveEjecucionGeovisor(
-    microrruta: string, 
-    lote: string, 
-    cuadrilla: string, 
-    frecuencia: string, 
-    mes: string, 
-    estado: "En Ejecución" | "Ejecutado"
-  ): Promise<void> {
+microrruta: string, lote: string, cuadrilla: string, frecuencia: string, mes: string, action: string, estado: "En Ejecución" | "Ejecutado"  ): Promise<void> {
     const db = getDb();
     // Path pattern: microrruta|lote|cuadrilla|frecuencia|mes
     const id = `${microrruta}|${lote}|${formatCuadrilla(cuadrilla)}|${frecuencia}|${mes}`;
@@ -417,4 +411,3 @@ class DataService {
 }
 
 export const dataService = new DataService();
-
