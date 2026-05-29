@@ -9,17 +9,17 @@ const BASE_DEMO_USERS = [
   { username: "supervisor", name: "Supervisor de Campo", password: "123", role: "supervisor" as const },
   { username: "Auxiliar 1", name: "Juliana Londoño", password: "Auxiliar0100", role: "auxiliar" as const },
   { username: "Auxiliar 2", name: "Sara Gil", password: "Auxiliar0200", role: "auxiliar" as const },
-  { username: "Supervisor9", name: "Anderson", password: "supervisoranderson", role: "supervisor" as const },
-  { username: "Supervisor 1", name: "Johan", password: "supervisorjohan", role: "supervisor" as const },
-  { username: "Supervisor 2", name: "Carol", password: "supervisorcarol", role: "supervisor" as const },
-  { username: "Supervisor 3", name: "Yonatan", password: "supervisoryonatan", role: "supervisor" as const },
-  { username: "Supervisor 4", name: "Marcos", password: "supervisormarcos", role: "supervisor" as const },
-  { username: "Supervisor 5", name: "Herney", password: "supervisorherney", role: "supervisor" as const },
-  { username: "Supervisor 6", name: "NN", password: "supervisor6Password", role: "supervisor" as const },
-  { username: "Supervisor 7", name: "Leandro", password: "supervisorleandro", role: "supervisor" as const },
-  { username: "Supervisor 8", name: "Jorman", password: "supervisorjorman", role: "supervisor" as const },
-  { username: "Supervisor 10", name: "Angela", password: "supervisorangela", role: "supervisor" as const },
-  { username: "Supervisor 11", name: "Nelson", password: "supervisornelson", role: "supervisor" as const }
+  { username: "Supervisor 9", name: "Anderson", password: "supervisor009", role: "supervisor" as const },
+  { username: "Supervisor 1", name: "Johan", password: "supervisor001", role: "supervisor" as const },
+  { username: "Supervisor 2", name: "Carol", password: "supervisor002", role: "supervisor" as const },
+  { username: "Supervisor 3", name: "Yonatan", password: "supervisor003", role: "supervisor" as const },
+  { username: "Supervisor 4", name: "Marcos", password: "supervisor004", role: "supervisor" as const },
+  { username: "Supervisor 5", name: "Herney", password: "supervisor005", role: "supervisor" as const },
+  { username: "Supervisor 6", name: "NN", password: "supervisor006", role: "supervisor" as const },
+  { username: "Supervisor 7", name: "Leandro", password: "supervisor007", role: "supervisor" as const },
+  { username: "Supervisor 8", name: "Jorman", password: "supervisor008", role: "supervisor" as const },
+  { username: "Supervisor 10", name: "Angela", password: "supervisor0010", role: "supervisor" as const },
+  { username: "Supervisor 11", name: "Nelson", password: "supervisor0011", role: "supervisor" as const }
 ];
 
 interface LoginModalProps {
