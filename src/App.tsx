@@ -1,11 +1,8 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect } from "react";
 import OperativaModule from "./components/Operativa/OperativaModule";
 import MapViewer from "./components/Geovisor/MapViewer";
+import LoginModal from "./auth/LoginModal";
+import { User } from "./types";
 import { LayoutDashboard, Map as MapIcon, ClipboardCheck, ArrowUpRight, Layers, Users, RefreshCw } from "lucide-react";
 import { cn } from "./lib/utils";
 
@@ -15,6 +12,43 @@ export default function App() {
     return localStorage.getItem("selected_cuadrilla");
   });
   const [currentDate, setCurrentDate] = useState("");
+
+  // Authenticated user state
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem("current_user");
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Modal control states
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [requiredRole, setRequiredRole] = useState<"auxiliar" | "supervisor" | null>(null);
+  const [intendedModule, setIntendedModule] = useState<"home" | "operativa" | "geovisor" | null>(null);
+
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    localStorage.setItem("current_user", JSON.stringify(user));
+    
+    // Redirect if they intended to open a module
+    if (intendedModule === "operativa") {
+      setActiveModule("operativa");
+    } else if (intendedModule === "geovisor") {
+      setActiveModule("geovisor");
+    }
+    
+    // Reset targets
+    setIntendedModule(null);
+    setRequiredRole(null);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem("current_user");
+    setActiveModule("home");
+  };
 
   useEffect(() => {
     const date = new Date();
@@ -52,6 +86,12 @@ export default function App() {
             <MapViewer 
               selectedCuadrilla={selectedCuadrilla || undefined} 
               onSelectCuadrilla={handleSelectCuadrilla}
+              currentUser={currentUser}
+              onTriggerLogin={() => {
+                setIntendedModule("geovisor");
+                setRequiredRole("supervisor");
+                setShowLoginModal(true);
+              }}
             />
           </div>
         );
@@ -81,10 +121,34 @@ export default function App() {
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="bg-gray-55 border border-gray-100 px-4 py-2 rounded-full flex items-center gap-3">
+                  <div className="bg-gray-55 border border-gray-100 px-4 py-2 rounded-full flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-400" />
                     <span className="text-xs md:text-sm font-medium text-gray-600 capitalize">{currentDate}</span>
                   </div>
+
+                  {currentUser ? (
+                    <div className="flex items-center gap-2 bg-neutral-50 px-3 py-1.5 rounded-full border border-neutral-100 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <button
+                        onClick={handleLogout}
+                        className="bg-red-80 hover:bg-red-100 text-red-650 px-3.5 py-0.5 rounded-full text-[9px] font-bold uppercase transition-colors shrink-0"
+                        title="Cerrar Sesión"
+                      >
+                        Salir
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setRequiredRole(null);
+                        setIntendedModule(null);
+                        setShowLoginModal(true);
+                      }}
+                      className="bg-neutral-950 hover:bg-black text-white px-4.5 py-2 rounded-full text-xs font-bold transition-all shadow-sm active:scale-95 duration-200"
+                    >
+                      Ingresar
+                    </button>
+                  )}
                 </div>
               </header>
 
@@ -107,10 +171,18 @@ export default function App() {
                   index={1}
                   icon={<ClipboardCheck size={28} className="text-green-600" />}
                   title="Ejecución y Operaciones"
-                  onClick={() => setActiveModule("operativa")}
+                  onClick={() => {
+                    if (currentUser?.role === "auxiliar" || currentUser?.role === "supervisor") {
+                      setActiveModule("operativa");
+                    } else {
+                      setIntendedModule("operativa");
+                      setRequiredRole("auxiliar");
+                      setShowLoginModal(true);
+                    }
+                  }}
                   bgClass="bg-[#e2ede1]"
                   decorationClass="after:bg-[#f0f7ef]"
-                  titleStyle={{ fontFamily: 'Fraunces, serif', fontStyle: 'normal', fontSize: '41px' }}
+                  titleStyle={{ fontFamily: 'Fraunces, serif', fontStyle: 'normal', fontSize: '36px' }}
                   pStyle={{ fontFamily: '"Cactus Classical Serif", serif' }}
                 />
                 
@@ -121,7 +193,7 @@ export default function App() {
                   onClick={() => setActiveModule("geovisor")}
                   bgClass="bg-[#c2e2f0]"
                   decorationClass="after:bg-[#d5ebf5]"
-                  titleStyle={{ fontFamily: 'Fraunces, serif', fontStyle: 'normal', fontSize: '40px' }}
+                  titleStyle={{ fontFamily: 'Fraunces, serif', fontStyle: 'normal', fontSize: '36px' }}
                   pStyle={{ fontFamily: '"Cactus Classical Serif", serif' }}
                 />
               </div>
@@ -148,6 +220,17 @@ export default function App() {
             </button>
             
             <div className="flex items-center gap-4">
+              {currentUser && (
+                <div className="bg-neutral-900 border border-neutral-950 text-white px-3 py-1.5 rounded-full flex items-center gap-2 text-[10px] font-bold shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <button
+                    onClick={handleLogout}
+                    className="bg-red-650 hover:bg-red-700 text-white font-extrabold uppercase rounded-full px-2.5 py-0.5 text-[8px]"
+                  >
+                    Salir
+                  </button>
+                </div>
+              )}
               {selectedCuadrilla && (
                 <div className="bg-gray-100 border border-gray-200/60 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[10px] font-bold text-gray-700">
                   <Users size={12} className="text-gray-500" />
@@ -175,6 +258,16 @@ export default function App() {
       )}>
         {renderContent()}
       </main>
+
+      {/* Global Access Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        requiredRole={requiredRole}
+        onLoginSuccess={handleLoginSuccess}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }
