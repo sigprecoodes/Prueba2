@@ -1,4 +1,3 @@
-
 import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
 import { getDatabase, Database } from "firebase/database";
 
