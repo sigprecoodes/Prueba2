@@ -46,47 +46,53 @@ function FitBounds({ features }: { features: any[] }) {
 }
 
 const getExecutionForFeature = (props: any, ejecuciones: Record<string, any>) => {
-  if (!props || !ejecuciones) return null;
-  const mRuta = String(props.Microruta || "").toLowerCase().trim();
-  const nLote = String(props.No_Lote || "").toLowerCase().trim();
+  try {
+    if (!props || !ejecuciones || typeof ejecuciones !== "object") return null;
+    const mRuta = String(props.Microruta || props.microrruta || props.MICRORRUTA || "").toLowerCase().trim();
+    const nLote = String(props.No_Lote || props.no_lote || props.LOTE || props.lote || "").toLowerCase().trim();
+    if (!mRuta || !nLote) return null;
   
   const rawExec = Object.values(ejecuciones).find((exec: any) => {
-    if (!exec) return false;
-    const execMicro = String(exec.MICRORRUTA || exec.microrruta || "").toLowerCase().trim();
-    const execLote = String(exec.LOTE || exec.lote || "").toLowerCase().trim();
-    return execMicro === mRuta && execLote === nLote;
+    if (!exec || typeof exec !== "object") return false;
+      const execMicro = String(exec.MICRORRUTA || exec.microrruta || exec.id || "").toLowerCase().trim();
+      const execLote = String(exec.LOTE !== undefined ? exec.LOTE : (exec.lote !== undefined ? exec.lote : "")).toLowerCase().trim();
+      return execMicro === mRuta && execLote === nLote;
   });
   
   if (!rawExec) {
-    // Try to find using the old startsWith pattern matching
-    const prefix = `${props.Microruta}|${props.No_Lote}|`;
-    const execEntry = Object.entries(ejecuciones).find(([key]) => {
-      return key.replace(/_/g, '|').startsWith(prefix);
-    });
-    if (execEntry) {
-      const e = execEntry[1] as any;
-      return {
-        id: e.id,
-        estado: e.ESTADO || e.estado || "Pendiente",
-        fechaInicio: e.FECHA_INICIO || e.fechaInicio || "",
-        fechaFin: e.FECHA_FIN || e.fechaFin || "",
-        microrruta: e.MICRORRUTA || e.microrruta || "",
-        lote: e.LOTE || e.lote || "",
-        cuadrilla: e.CUADRILLA || e.cuadrilla || ""
-      } as Ejecucion;
+      // Try to find using the old startsWith pattern matching
+      const prefix = `${props.Microruta || ""}|${props.No_Lote || ""}|`;
+      const execEntry = Object.entries(ejecuciones).find(([key]) => {
+        return String(key || "").replace(/_/g, '|').startsWith(prefix);
+      });
+      if (execEntry && execEntry[1] && typeof execEntry[1] === "object") {
+        const e = execEntry[1] as any;
+        return {
+          id: String(e.id || ""),
+          estado: String(e.ESTADO || e.estado || "Pendiente"),
+          fechaInicio: String(e.FECHA_INICIO || e.fechaInicio || ""),
+          fechaFin: String(e.FECHA_FIN || e.fechaFin || ""),
+          microrruta: String(e.MICRORRUTA || e.microrruta || ""),
+          lote: String(e.LOTE !== undefined ? e.LOTE : (e.lote !== undefined ? e.lote : "")),
+          cuadrilla: String(e.CUADRILLA || e.cuadrilla || "")
+        } as Ejecucion;
+      }
+      return null;
     }
-    return null;
-  }
   
   return {
-    id: rawExec.id || "",
-    estado: rawExec.ESTADO || rawExec.estado || "Pendiente",
-    fechaInicio: rawExec.FECHA_INICIO || rawExec.fechaInicio || "",
-    fechaFin: rawExec.FECHA_FIN || rawExec.fechaFin || "",
-    microrruta: rawExec.MICRORRUTA || rawExec.microrruta || "",
-    lote: rawExec.LOTE || rawExec.lote || "",
-    cuadrilla: rawExec.CUADRILLA || rawExec.cuadrilla || ""
-  } as Ejecucion;
+      id: String(rawExec.id || ""),
+      estado: String(rawExec.ESTADO || rawExec.estado || "Pendiente"),
+      fechaInicio: String(rawExec.FECHA_INICIO || rawExec.fechaInicio || ""),
+      fechaFin: String(rawExec.FECHA_FIN || rawExec.fechaFin || ""),
+      microrruta: String(rawExec.MICRORRUTA || rawExec.microrruta || ""),
+      lote: String(rawExec.LOTE !== undefined ? rawExec.LOTE : (rawExec.lote !== undefined ? rawExec.lote : "")),
+      cuadrilla: String(rawExec.CUADRILLA || rawExec.cuadrilla || "")
+    } as Ejecucion;
+  } catch (err) {
+    console.error("Error inside getExecutionForFeature:", err);
+    return null;
+  }
 };
 
 interface MapViewerProps {
@@ -442,8 +448,9 @@ export default function MapViewer({
           />
         )}
 
-        {selectedFeature && (
+        {selectedFeature && selectedFeature.feature && selectedFeature.latlng && (
           <Popup 
+            key={`popup-${selectedFeature.feature.properties.Microruta || ""}-${selectedFeature.feature.properties.No_Lote || ""}-${getExecutionForFeature(selectedFeature.feature.properties, ejecuciones)?.estado || "Pendiente"}-${quincenaManual}`}
             position={selectedFeature.latlng} 
             onClose={() => setSelectedFeature(null)}
           >
@@ -485,6 +492,7 @@ export default function MapViewer({
                 <p>
                   <span className="text-black-600 font-bold">Estado:</span> 
                   {(() => {
+                    try {
                     const props = selectedFeature.feature.properties;
                     const exec = getExecutionForFeature(props, ejecuciones);
                     const estado = exec?.estado || "Pendiente";
@@ -499,14 +507,19 @@ export default function MapViewer({
                         {estado}
                       </span>
                     );
+                  } catch (e) {
+                    console.error("Error rendering status:", e);
+                      return <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-100 text-blue-700">Pendiente</span>;
+                    }
                   })()}
                 </p>
                 {(() => {
-                  const activeNovs = novedades.filter(
-                    n => n.MICRORRUTA === selectedFeature.feature.properties.Microruta && 
-                    String(n.LOTE) === String(selectedFeature.feature.properties.No_Lote) && 
-                    n.ESTADO_NOVEDAD !== "SUBSANADA"
-                  );
+                  try {
+                    const activeNovs = (novedades || []).filter(
+                      n => n && n.MICRORRUTA === selectedFeature.feature.properties.Microruta && 
+                      String(n.LOTE || "") === String(selectedFeature.feature.properties.No_Lote || "") && 
+                      n.ESTADO_NOVEDAD !== "SUBSANADA"
+                    );
                   if (activeNovs.length === 0) return null;
                   return (
                     <div className="mt-2.5 p-2.5 bg-red-50 border border-red-200/60 rounded-xl space-y-1">
@@ -529,11 +542,16 @@ export default function MapViewer({
                       </div>
                     </div>
                   );
+                  } catch (e) {
+                    console.error("Error rendering novelty popup state:", e);
+                    return null;
+                  }
                 })()}
               </div>
               
               <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
                 {(() => {
+                  try {
                   const props = selectedFeature.feature.properties;
                   const exec = getExecutionForFeature(props, ejecuciones);
                   const isSupervisor = currentUser?.role === "supervisor";
@@ -572,6 +590,10 @@ export default function MapViewer({
                       </button>
                     </>
                   );
+                  } catch (e) {
+                    console.error("Error rendering action buttons:", e);
+                    return null;
+                  }
                 })()}
               </div>
             </div>
