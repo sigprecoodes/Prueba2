@@ -10,9 +10,9 @@ import {
 import L from "leaflet";
 import { SAMPLE_GEOJSON } from "../../constants";
 import { dataService } from "../../services/dataService";
-import { Novedad, Ejecucion, GeoJSONProperties } from "../../types";
+import { Novedad, Ejecucion, GeoJSONProperties, User } from "../../types";
 import { cn } from "../../lib/utils";
-import { Search, Filter, Users, Clock, AlertTriangle } from "lucide-react";
+import { Search, Filter, Users, Clock, AlertTriangle, Lock } from "lucide-react";
 
 const { BaseLayer } = LayersControl;
 
@@ -45,12 +45,63 @@ function FitBounds({ features }: { features: any[] }) {
   return null;
 }
 
+const getExecutionForFeature = (props: any, ejecuciones: Record<string, any>) => {
+  if (!props || !ejecuciones) return null;
+  const mRuta = String(props.Microruta || "").toLowerCase().trim();
+  const nLote = String(props.No_Lote || "").toLowerCase().trim();
+  
+  const rawExec = Object.values(ejecuciones).find((exec: any) => {
+    if (!exec) return false;
+    const execMicro = String(exec.MICRORRUTA || exec.microrruta || "").toLowerCase().trim();
+    const execLote = String(exec.LOTE || exec.lote || "").toLowerCase().trim();
+    return execMicro === mRuta && execLote === nLote;
+  });
+  
+  if (!rawExec) {
+    // Try to find using the old startsWith pattern matching
+    const prefix = `${props.Microruta}|${props.No_Lote}|`;
+    const execEntry = Object.entries(ejecuciones).find(([key]) => {
+      return key.replace(/_/g, '|').startsWith(prefix);
+    });
+    if (execEntry) {
+      const e = execEntry[1] as any;
+      return {
+        id: e.id,
+        estado: e.ESTADO || e.estado || "Pendiente",
+        fechaInicio: e.FECHA_INICIO || e.fechaInicio || "",
+        fechaFin: e.FECHA_FIN || e.fechaFin || "",
+        microrruta: e.MICRORRUTA || e.microrruta || "",
+        lote: e.LOTE || e.lote || "",
+        cuadrilla: e.CUADRILLA || e.cuadrilla || ""
+      } as Ejecucion;
+    }
+    return null;
+  }
+  
+  return {
+    id: rawExec.id || "",
+    estado: rawExec.ESTADO || rawExec.estado || "Pendiente",
+    fechaInicio: rawExec.FECHA_INICIO || rawExec.fechaInicio || "",
+    fechaFin: rawExec.FECHA_FIN || rawExec.fechaFin || "",
+    microrruta: rawExec.MICRORRUTA || rawExec.microrruta || "",
+    lote: rawExec.LOTE || rawExec.lote || "",
+    cuadrilla: rawExec.CUADRILLA || rawExec.cuadrilla || ""
+  } as Ejecucion;
+};
+
 interface MapViewerProps {
   selectedCuadrilla?: string;
   onSelectCuadrilla?: (cuadrilla: string) => void;
+  currentUser?: User | null;
+  onTriggerLogin?: () => void;
 }
 
-export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapViewerProps) {
+export default function MapViewer({ 
+  selectedCuadrilla, 
+  onSelectCuadrilla, 
+  currentUser, 
+  onTriggerLogin 
+}: MapViewerProps) {
   const [ejecuciones, setEjecuciones] = useState<Record<string, Ejecucion>>({});
   const [novedades, setNovedades] = useState<Novedad[]>([]);
   const [meta, setMeta] = useState<{
@@ -93,11 +144,11 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
       // other cuadrillas' heavy geojson data prior to setting features.
       // This completely resolves render lags for Leaflet!
       if (selectedCuadrilla && selectedCuadrilla !== "Todas") {
-        const queryTerm = selectedCuadrilla.toLowerCase().replace(/[\s_-]/g, "");
+        const queryTerm = String(selectedCuadrilla).toLowerCase().replace(/[\s_-]/g, "");
         f = f.filter((item: any) => {
           const cVal = item.properties?.Cuadrilla;
           if (!cVal) return false;
-          return cVal.toLowerCase().replace(/[\s_-]/g, "") === queryTerm;
+          return String(cVal).toLowerCase().replace(/[\s_-]/g, "") === queryTerm;
         });
       }
       
@@ -134,30 +185,37 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
   };
 
   const handleAction = async (feature: any, action: "En Ejecución" | "Ejecutado") => {
-    const { Microruta, No_Lote, Cuadrilla } = feature.properties;
+    try {
+    const props = feature.properties || {};
+    const microrruta = props.Microruta || props.microrruta || props.MICRORRUTA || "";
+    const lote = props.No_Lote || props.no_lote || props.LOTE || props.lote || "";
+    const cuadrilla = props.Cuadrilla || props.cuadrilla || props.CUADRILLA || "Cuadrilla 6";
     const currentMonth = new Date().getMonth() + 1; // 1-12
     
     await dataService.saveEjecucionGeovisor(
-      Microruta, 
-      No_Lote, 
-      Cuadrilla || "Cuadrilla 6", 
+      microrruta, 
+      lote, 
+      cuadrilla, 
       quincenaManual, 
       String(currentMonth), 
-      action
+      action,
+      props
     );
     // Refresh selected feature to update popup UI
-    setSelectedFeature((prev: any) => ({ ...prev }));
+      setSelectedFeature((prev: any) => prev ? { ...prev } : null);
+    } catch (err) {
+      console.error("Error saving execution in map:", err);
+      alert("Ocurrió un error al guardar la ejecución en la base de datos de Firebase. Por favor valide su red o configuraciones.");
+    }
   };
 
   const onEachFeature = (feature: any, layer: L.Layer) => {
     layer.on({
       mouseover: (e) => {
         const l = e.target;
-        l.setStyle({ fillOpacity: 0.7 });
       },
       mouseout: (e) => {
         const l = e.target;
-        l.setStyle({ fillOpacity: 0.6 });
       },
       click: (e) => {
         const props = feature.properties;
@@ -173,26 +231,24 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
   const geojsonStyle = (feature: any) => {
     const props = feature.properties as any;
     
-    // Find execution by searching for key that starts with microrruta|lote
-    const prefix = `${props.Microruta}|${props.No_Lote}|`;
-    const execEntry = Object.entries(ejecuciones).find(([key]) => key.replace(/_/g, '|').startsWith(prefix));
-    const exec = execEntry ? (execEntry[1] as Ejecucion) : null;
+    // Find execution by searching with robust helper
+    const exec = getExecutionForFeature(props, ejecuciones);
 
     const hasNovedad = novedades.some(
       (n) => n.MICRORRUTA === props.Microruta && String(n.LOTE) === String(props.No_Lote) && n.ESTADO_NOVEDAD !== "SUBSANADA"
     );
 
-    let color = "#3b82f6"; // Default Blue
-    if (hasNovedad) color = "#ef4444"; // Red for news
-    else if (exec?.estado === "Ejecutado") color = "#22c55e"; // Green
-    else if (exec?.estado === "En Ejecución") color = "#f59e0b"; // Yellow
+    let color = "#0091ff"; // Default Blue
+    if (hasNovedad) color = "#ff0808"; // Red for news
+    else if (exec?.estado === "Ejecutado") color = "#0eaa08"; // Green
+    else if (exec?.estado === "En Ejecución") color = "#fcc900"; // Yellow
 
     return {
       fillColor: color,
-      weight: 2,
-      opacity: 2,
-      color: "transparent",
-      fillOpacity: 2,
+      weight: 1,
+      opacity: 1,
+      color: "trasnparent",
+      fillOpacity: 1,
     };
   };
 
@@ -208,9 +264,7 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
       (String(mRuta).toLowerCase()).includes(searchTerm.toLowerCase()) ||
       (String(nLote).toLowerCase()).includes(searchTerm.toLowerCase());
     
-    const prefix = `${mRuta}|${nLote}|`;
-    const execEntry = Object.entries(ejecuciones).find(([key]) => key.replace(/_/g, '|').startsWith(prefix));
-    const exec = execEntry ? (execEntry[1] as Ejecucion) : null;
+    const exec = getExecutionForFeature({ Microruta: mRuta, No_Lote: nLote }, ejecuciones);
     
     const estado = exec?.estado || "Pendiente";
     const matchesEstado = filterEstado === "Todos" || estado === filterEstado;
@@ -243,7 +297,7 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
             <h2 className="text-2xl md:text-3xl font-serif text-gray-950 tracking-tight leading-tight mb-3">
               Cartografía operativa - Contrato EMVARIAS
             </h2>
-            <p className="text-xs md:text-sm text-neutral-500 font-medium leading-relaxed">
+            <p className="text-xs md:text-sm text-neutral-500 font-medium leading-relaxed mb-6">
               Seleccione su cuadrilla de operación.
             </p>
           </header>
@@ -341,6 +395,7 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
                 <option value="Pendiente">Pendiente</option>
                 <option value="En Ejecución">En Ejecución</option>
                 <option value="Ejecutado">Ejecutado</option>
+                <option value="Novedad">Novedad</option>
               </select>
              </div>
           </div>
@@ -393,16 +448,16 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
             onClose={() => setSelectedFeature(null)}
           >
             <div className="p-1 min-w-[200px] max-w-[280px]">
-              <h3 className="font-bold text-lg text-gray-900 border-bottom mb-2">
+              <h3 className="text-[20px] font-bold text-gray-800 border-bottom mb-2 justify-center flex items-center gap-2 mb-2">
                 Lote {selectedFeature.feature.properties.No_Lote}
               </h3>
               <div className="space-y-1.5 text-sm mb-4">
-                <p><span className="text-gray-500 font-medium">Microrruta:</span> {selectedFeature.feature.properties.Microruta}</p>
-                <p><span className="text-gray-500 font-medium">Cuadrilla:</span> {selectedFeature.feature.properties.Cuadrilla}</p>
-                <p><span className="text-gray-500 font-medium">Frecuencia:</span> {selectedFeature.feature.properties.Frecuencia}</p>
+                <p><span className="text-black-600 font-bold">Microrruta:</span> {selectedFeature.feature.properties.Microruta}</p>
+                <p><span className="text-black-600 font-bold">Cuadrilla:</span> {selectedFeature.feature.properties.Cuadrilla}</p>
+                <p><span className="text-black-600 font-bold">Frecuencia:</span> {selectedFeature.feature.properties.Frecuencia}</p>
                 
                 <div className="flex items-center justify-between py-1.5 border-t border-gray-50 mt-1">
-                  <span className="text-gray-500 font-medium ml-[-4px] mr-[-2px] mt-[5px]">Quincena a Reportar:</span>
+                  <span className="text-black-600 font-bold ml-[-4px] mr-[-2px] mt-[5px]">Quincena a Reportar:</span>
                   <div className="flex bg-gray-100/80 p-0.5 rounded-full border border-gray-200 ml-1.5 pl-[5px] w-[96.3px]">
                     <button 
                       onClick={() => setQuincenaManual("Q1")}
@@ -425,15 +480,13 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
                   </div>
                 </div>
 
-                <p><span className="text-gray-500 font-medium">Semana:</span> {selectedFeature.feature.properties.Semana}</p>
-                <p><span className="text-gray-500 font-medium">Día de Ej:</span> {selectedFeature.feature.properties.Día_de_ej}</p>
+                <p><span className="text-black-600 font-bold">Semana:</span> {selectedFeature.feature.properties.Semana}</p>
+                <p><span className="text-black-600 font-bold">Día de Ej:</span> {selectedFeature.feature.properties.Día_de_ej}</p>
                 <p>
-                  <span className="text-gray-500 font-medium">Estado:</span> 
+                  <span className="text-black-600 font-bold">Estado:</span> 
                   {(() => {
                     const props = selectedFeature.feature.properties;
-                    const prefix = `${props.Microruta}|${props.No_Lote}|`;
-                    const execEntry = Object.entries(ejecuciones).find(([key]) => key.replace(/_/g, '|').startsWith(prefix));
-                    const exec = execEntry ? (execEntry[1] as Ejecucion) : null;
+                    const exec = getExecutionForFeature(props, ejecuciones);
                     const estado = exec?.estado || "Pendiente";
                     
                     return (
@@ -448,20 +501,58 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
                     );
                   })()}
                 </p>
-                {novedades.some(n => n.MICRORRUTA === selectedFeature.feature.properties.Microruta && String(n.LOTE) === String(selectedFeature.feature.properties.No_Lote) && n.ESTADO_NOVEDAD !== "SUBSANADA") && (
-                  <p className="flex items-center gap-1.5 text-red-600 font-bold bg-red-50 p-2 rounded-lg mt-2">
-                    <AlertTriangle className="w-4 h-4" />
-                    NOVEDAD ACTIVA
-                  </p>
-                )}
+                {(() => {
+                  const activeNovs = novedades.filter(
+                    n => n.MICRORRUTA === selectedFeature.feature.properties.Microruta && 
+                    String(n.LOTE) === String(selectedFeature.feature.properties.No_Lote) && 
+                    n.ESTADO_NOVEDAD !== "SUBSANADA"
+                  );
+                  if (activeNovs.length === 0) return null;
+                  return (
+                    <div className="mt-2.5 p-2.5 bg-red-50 border border-red-200/60 rounded-xl space-y-1">
+                      <div className="flex items-center gap-1.5 text-red-700 font-extrabold text-[10px] uppercase tracking-wider mb-1.5">
+                        <span>{activeNovs.length === 1 ? 'Novedad Activa' : 'Novedades Activas'}</span>
+                      </div>
+                      <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-0.5">
+                        {activeNovs.map((n, idx) => (
+                          <div key={n.id || idx} className="text-[11px] leading-tight text-red-950 font-medium pb-1.5 last:pb-0 border-b border-red-200/40 last:border-0 pl-1">
+                            <span className="font-black block text-red-800 uppercase text-[9px] tracking-tight">
+                               {n.TIPO_NOVEDAD || 'Novedad General'}
+                            </span>
+                            {n.FECHA_REPORTE_NOVEDAD && (
+                              <span className="text-red-900/60 block mt-0.5 text-[9px] font-semibold uppercase">
+                                Reportado: {n.FECHA_REPORTE_NOVEDAD}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               
               <div className="flex flex-col gap-2 pt-2 border-t border-gray-100">
                 {(() => {
                   const props = selectedFeature.feature.properties;
-                  const prefix = `${props.Microruta}|${props.No_Lote}|`;
-                  const execEntry = Object.entries(ejecuciones).find(([key]) => key.replace(/_/g, '|').startsWith(prefix));
-                  const exec = execEntry ? (execEntry[1] as Ejecucion) : null;
+                  const exec = getExecutionForFeature(props, ejecuciones);
+                  const isSupervisor = currentUser?.role === "supervisor";
+                  
+                  if (!isSupervisor) {
+                    return (
+                      <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-1.5 text-center shadow-xl">
+                        <p className="text-[10px] text-neutral-500 font-bold mb-1.5 flex items-center justify-center gap-1.5 uppercase tracking-wider">
+                          Modo Solo Lectura
+                        </p>
+                        <button
+                          onClick={onTriggerLogin}
+                          className="w-full bg-neutral-900 hover:bg-black text-white font-extrabold uppercase py-2 rounded-lg text-[9px] tracking-widest transition-colors"
+                        >
+                          Iniciar Sesión
+                        </button>
+                      </div>
+                    );
+                  }
                   
                   return (
                     <>
@@ -470,14 +561,14 @@ export default function MapViewer({ selectedCuadrilla, onSelectCuadrilla }: MapV
                         disabled={exec?.estado === "En Ejecución" || exec?.estado === "Ejecutado"}
                         className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3 md:py-2 rounded-xl md:rounded-lg text-xs transition-colors"
                       >
-                        INICIAR
+                        INICIAR TRABAJO
                       </button>
                       <button
                         onClick={() => handleAction(selectedFeature.feature, "Ejecutado")}
                         disabled={exec?.estado === "Ejecutado"}
                         className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3 md:py-2 rounded-xl md:rounded-lg text-xs transition-colors"
                       >
-                        FINALIZAR
+                        FINALIZAR TRABAJO
                       </button>
                     </>
                   );
