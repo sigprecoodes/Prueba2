@@ -23,7 +23,7 @@
     return d.toLocaleDateString('en-CA'); // 'en-CA' garantiza el formato YYYY-MM-DD
   };
 
-  export default function OperativaModule() {
+  export default function OperativaModule({ selectedCuadrilla = "Todas" }: { selectedCuadrilla?: string }) {
     const [activeTab, setActiveTab] = useState<"reporte" | "cierre" | "historial">("reporte");
     const [novedades, setNovedades] = useState<Novedad[]>([]);
     const [isSyncing, setIsSyncing] = useState(true);
@@ -149,11 +149,11 @@
 
           <main className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             {activeTab === "reporte" ? (
-              <ReportForm onReported={loadNovedades} />
+              <ReportForm onReported={loadNovedades} selectedCuadrilla={selectedCuadrilla} />
             ) : activeTab === "cierre" ? (
-              <CierreList novedades={novedades} onUpdated={loadNovedades} />
+              <CierreList novedades={novedades} onUpdated={loadNovedades} selectedCuadrilla={selectedCuadrilla} />
             ) : (
-              <HistorialList novedades={novedades} />
+              <HistorialList novedades={novedades} selectedCuadrilla={selectedCuadrilla} />
             )}
           </main>
         </div>
@@ -161,7 +161,7 @@
     );
   }
 
-  function ReportForm({ onReported }: { onReported: () => void }) {
+  function ReportForm({ onReported, selectedCuadrilla }: { onReported: () => void; selectedCuadrilla: string }) {
     const [meta, setMeta] = useState<{
       cuadrillas: string[];
       microrrutas: Record<string, string[]>;
@@ -172,22 +172,52 @@
       lotes: {}
     });
 
+    const [emailsConfig, setEmailsConfig] = useState<Record<string, string>>({});
+
     const [formData, setFormData] = useState({
-      cuadrilla: "",
+      cuadrilla: selectedCuadrilla && selectedCuadrilla !== "Todas" ? selectedCuadrilla : "",
       microrruta: "",
       lote: "",
       quincena: "Q1" as const,
       tipoNovedad: "",
       fechaReporte: getLocalDate(),
+      correo: ""
     });
 
     useEffect(() => {
       const fetchMeta = async () => {
-        const data = await dataService.getMetadata();
-        setMeta(data);
+        const [metaData, emailsData] = await Promise.all([
+          dataService.getMetadata(),
+          dataService.getCuadrillasEmails()
+        ]);
+        setMeta(metaData);
+        setEmailsConfig(emailsData);
+        
+        // Auto pre-populate associated email if a specific Cuadrilla is selected
+        if (selectedCuadrilla && selectedCuadrilla !== "Todas") {
+          const formatted = formatCuadrilla(selectedCuadrilla);
+          const associatedEmail = emailsData[formatted] || emailsData[selectedCuadrilla] || "";
+          if (associatedEmail) {
+            setFormData(prev => ({ ...prev, correo: associatedEmail }));
+          }
+        }
       };
       fetchMeta();
-    }, []);
+    }, [selectedCuadrilla]);
+
+    const handleCuadrillaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const cuadrilla = e.target.value;
+      const formatted = formatCuadrilla(cuadrilla);
+      const associatedEmail = emailsConfig[formatted] || emailsConfig[cuadrilla] || "";
+      
+      setFormData({ 
+        ...formData, 
+        cuadrilla, 
+        microrruta: "", 
+        lote: "",
+        correo: associatedEmail
+      });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -222,7 +252,7 @@
                 <select
                   className="w-full bg-gray-50 border-0 rounded-xl px-4 py-3 md:py-4 focus:ring-2 focus:ring-black outline-none font-medium transition-all text-sm"
                   value={formData.cuadrilla}
-                  onChange={(e) => setFormData({ ...formData, cuadrilla: e.target.value, microrruta: "", lote: "" })}
+                  onChange={handleCuadrillaChange}
                 >
                   <option value="">Seleccione Cuadrilla</option>
                   {meta.cuadrillas.length > 0 ? (
@@ -316,6 +346,16 @@
                   onChange={(e) => setFormData({ ...formData, fechaReporte: e.target.value })}
                 />
               </FormField>
+
+              <FormField label="Correo Electrónico de Notificación">
+                <input
+                  type="email"
+                  placeholder="ejemplo@correo.com"
+                  className="w-full bg-gray-50 border-0 rounded-xl px-4 py-3 md:py-4 focus:ring-2 focus:ring-black outline-none font-medium transition-all text-sm"
+                  value={formData.correo}
+                  onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
+                />
+              </FormField>
             </div>
 
             <button
@@ -331,6 +371,7 @@
             <div className="space-y-6">
               <SummaryItem label="Ubicación" value={`${formData.microrruta || '---'} | Lote ${formData.lote || '---'}`} />
               <SummaryItem label="Responsable" value={formData.cuadrilla || '---'} />
+              <SummaryItem label="Correo de contacto" value={formData.correo || '---'} />
               <SummaryItem label="Temporalidad" value={formData.quincena} />
               <div>
                 <p className="text-[10px] uppercase font-bold text-gray-300 mb-2">Previsualización de ID</p>
@@ -345,11 +386,25 @@
     );
   }
 
-  function CierreList({ novedades, onUpdated }: { novedades: Novedad[]; onUpdated: () => void }) {
+  function CierreList({ novedades, onUpdated, selectedCuadrilla }: { novedades: Novedad[]; onUpdated: () => void; selectedCuadrilla: string }) {
     const activeNovedades = novedades.filter(n => n.ESTADO_NOVEDAD !== "SUBSANADA");
     const [selectedNovedad, setSelectedNovedad] = useState<Novedad | null>(null);
-    const [activeCuadrilla, setActiveCuadrilla] = useState<string | null>(null);
+    const [activeCuadrilla, setActiveCuadrilla] = useState<string | null>(() => {
+      if (selectedCuadrilla && selectedCuadrilla !== "Todas") {
+        return formatCuadrilla(selectedCuadrilla);
+      }
+      return null;
+    });
     const [searchTerm, setSearchTerm] = useState("");
+
+    // Sync activeCuadrilla if selectedCuadrilla changes
+    useEffect(() => {
+      if (selectedCuadrilla && selectedCuadrilla !== "Todas") {
+        setActiveCuadrilla(formatCuadrilla(selectedCuadrilla));
+      } else {
+        setActiveCuadrilla(null);
+      }
+    }, [selectedCuadrilla]);
 
     // Reset search when changing cuadrilla
     useEffect(() => {
@@ -370,9 +425,9 @@
     // View for a specific Cuadrilla
     if (activeCuadrilla) {
       const items = (groupedNovedades[activeCuadrilla] || []).filter(n => 
-        n.MICRORRUTA.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(n.LOTE).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        n.TIPO_NOVEDAD.toLowerCase().includes(searchTerm.toLowerCase())
+        (n.MICRORRUTA || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
+        String(n.LOTE || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
+        (n.TIPO_NOVEDAD || "").toLowerCase().includes((searchTerm || "").toLowerCase())
       );
 
       return (
@@ -526,7 +581,7 @@
               </div>
 
               {/* Purple hover highlight like in the image's first card */}
-              <div className="absolute inset-0 border-4 border-white-500 rounded-[28px] opacity-0 group-hover:opacity-20 transition-opacity pointer-events-none" />
+              <div className="absolute inset-0 border-4 border-purple-500 rounded-[28px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             </div>
           );
         })}
@@ -567,7 +622,7 @@
           <h2 className="text-2xl md:text-3xl font-black text-black mb-1">Cerrar Novedad</h2>
           <p className="text-[10px] md:text-sm font-medium text-gray-400 mb-6 md:mb-10 truncate">{novedad.id}</p>
 
-          <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-10">
+          <div className="grid grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-5">
             <div className="bg-gray-50 p-3 md:p-4 rounded-xl md:rounded-2xl">
               <p className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase mb-0.5 md:mb-1">Microrruta</p>
               <p className="font-bold text-gray-900 text-xs md:text-base">{novedad.MICRORRUTA}</p>
@@ -576,6 +631,11 @@
               <p className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase mb-0.5 md:mb-1">Lote</p>
               <p className="font-bold text-gray-900 text-xs md:text-base">{novedad.LOTE}</p>
             </div>
+          </div>
+
+          <div className="bg-gray-50 p-3 md:p-4 rounded-xl md:rounded-2xl mb-6 md:mb-10">
+            <p className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase mb-0.5 md:mb-1">Correo de Notificación</p>
+            <p className="font-bold text-gray-900 text-xs md:text-base truncate">{novedad.CORREO || "No registrado"}</p>
           </div>
 
           <div className="space-y-4 md:space-y-6 mb-8 md:mb-10">
@@ -611,7 +671,7 @@
               onClick={handleUpdate}
               className="flex-1 border-2 border-black hover:bg-black hover:text-white font-bold py-3.5 md:py-4 rounded-xl md:rounded-2xl transition-all text-xs md:text-sm"
             >
-              GUARDAR
+              GUARDAR TRABAJO
             </button>
             <button
               onClick={handleCerrar}
@@ -625,18 +685,35 @@
     );
   }
 
-  function HistorialList({ novedades }: { novedades: Novedad[] }) {
+  function HistorialList({ novedades, selectedCuadrilla }: { novedades: Novedad[]; selectedCuadrilla: string }) {
     const subsidedNovedades = novedades
-      .filter(n => n.ESTADO_NOVEDAD === "SUBSANADA")
-      .sort((a, b) => new Date(b.FECHA_FIN_SUBSANACION || "").getTime() - new Date(a.FECHA_FIN_SUBSANACION || "").getTime());
+      .filter(n => {
+        const matchesState = (n.ESTADO_NOVEDAD || "").toUpperCase() === "SUBSANADA";
+        if (!matchesState) return false;
+        
+        // Filter history by cuadrilla if one is selected
+        if (selectedCuadrilla && selectedCuadrilla !== "Todas") {
+          const queryTerm = String(selectedCuadrilla).toLowerCase().replace(/[\s_-]/g, "");
+          return String(n.CUADRILLA || "").toLowerCase().replace(/[\s_-]/g, "") === queryTerm;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.FECHA_FIN_SUBSANACION || "").getTime();
+        const dateB = new Date(b.FECHA_FIN_SUBSANACION || "").getTime();
+        if (isNaN(dateA) && isNaN(dateB)) return 0;
+        if (isNaN(dateA)) return 1;
+        if (isNaN(dateB)) return -1;
+        return dateB - dateA;
+      });
 
     const [searchTerm, setSearchTerm] = useState("");
 
     const filtered = subsidedNovedades.filter(n => 
-      n.MICRORRUTA.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(n.LOTE).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      n.TIPO_NOVEDAD.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      n.CUADRILLA.toLowerCase().includes(searchTerm.toLowerCase())
+      String(n.MICRORRUTA || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
+      String(n.LOTE || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
+      String(n.TIPO_NOVEDAD || "").toLowerCase().includes((searchTerm || "").toLowerCase()) ||
+      String(n.CUADRILLA || "").toLowerCase().includes((searchTerm || "").toLowerCase())
     );
 
     return (
@@ -644,7 +721,7 @@
         <div className="bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="bg-green-100 rounded-2xl h-[35px] w-[43px] pt-[11px] pb-[7px] -mr-[7px] flex items-center justify-center">
-              <X className="w-[24px] h-[21px] text-green-600 mt-[-3px] ml-[-1px]" />
+              <History className="w-[24px] h-[21px] text-green-600 mt-[-3px] ml-[-1px]" />
             </div>
             <div>
               <h2 className="text-[15px] font-black text-gray-900 uppercase">Historial de Subsanación</h2>
@@ -681,25 +758,25 @@
               {filtered.map((n) => (
                 <tr key={n.id} className="hover:bg-gray-50/50 transition-colors group">
                   <td className="px-6 py-4">
-                    <p className="font-bold text-gray-900 text-sm whitespace-nowrap">{n.CUADRILLA.replace("_", " ")}</p>
+                    <p className="font-bold text-gray-900 text-sm whitespace-nowrap">{String(n.CUADRILLA || "").replace("_", " ")}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-[11px] font-black text-gray-400 uppercase">{n.MICRORRUTA}</p>
+                    <p className="text-[11px] font-black text-gray-400 uppercase">{String(n.MICRORRUTA || "")}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="font-bold text-gray-900 text-sm">Lote {n.LOTE}</p>
+                    <p className="font-bold text-gray-900 text-sm">Lote {String(n.LOTE || "")}</p>
                   </td>
                   <td className="px-6 py-4 max-w-xs">
-                    <p className="text-[11px] font-medium text-gray-500 line-clamp-2">{n.TIPO_NOVEDAD}</p>
+                    <p className="text-[11px] font-medium text-gray-500 line-clamp-2">{String(n.TIPO_NOVEDAD || "")}</p>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <p className="text-[10px] font-bold text-gray-400">{n.FECHA_REPORTE_NOVEDAD}</p>
+                    <p className="text-[10px] font-bold text-gray-400">{String(n.FECHA_REPORTE_NOVEDAD || "")}</p>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex flex-col items-center">
-                      <p className="text-[10px] font-bold text-green-600">{n.FECHA_FIN_SUBSANACION || "---"}</p>
+                      <p className="text-[10px] font-bold text-green-600">{String(n.FECHA_FIN_SUBSANACION || "---")}</p>
                       {n.USUARIO_FIN_SUBSANACION && (
-                        <p className="text-[8px] text-gray-300 truncate max-w-[100px]">{n.USUARIO_FIN_SUBSANACION.split('@')[0]}</p>
+                        <p className="text-[8px] text-gray-300 truncate max-w-[100px]">{String(n.USUARIO_FIN_SUBSANACION).split('@')[0]}</p>
                       )}
                     </div>
                   </td>
